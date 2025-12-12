@@ -2,6 +2,8 @@
 
 **Ocean Battle Racing** is a fast-paced, 3D arcade racing game built entirely in a single HTML file using Three.js. Navigate treacherous waves, blast your opponents with broadside cannons, and race to the finish line without capsizing or crashing into rocks.
 
+Try it here: [Play!](https://fraher.github.io/ocean_battle_racing/)
+
 ## Features
 
 *   **Dynamic Water Physics:** Real-time wave simulation that affects boat pitch and roll.
