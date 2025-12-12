@@ -4,6 +4,8 @@
 
 Try it here: [Play!](https://fraher.github.io/ocean_battle_racing/)
 
+![Ocean Battle Racing](ocean_battle_race.gif)
+
 ## Features
 
 *   **Dynamic Water Physics:** Real-time wave simulation that affects boat pitch and roll.
