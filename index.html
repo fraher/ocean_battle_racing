@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ocean Battle Racing</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        canvas { display: block; width: 100vw; height: 100vh; }
+        
+        /* UI Layers */
+        .ui-layer {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        /* Start Screen */
+        #start-screen {
+            background: rgba(0, 10, 30, 0.95);
+            z-index: 30;
+            pointer-events: auto;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+        
+        #start-screen h1 { font-size: 4rem; color: #38bdf8; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 4px; text-shadow: 0 0 30px rgba(56, 189, 248, 0.6); }
+        #start-screen p { color: #94a3b8; font-size: 1.2rem; margin-bottom: 40px; max-width: 600px; line-height: 1.6; }
+        
+        .difficulty-btn {
+            background: transparent;
+            border: 2px solid #38bdf8;
+            color: #38bdf8;
+            padding: 15px 40px;
+            margin: 10px;
+            font-size: 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            font-weight: bold;
+            letter-spacing: 2px;
+        }
+        
+        .difficulty-btn:hover { background: #38bdf8; color: #000; transform: translateY(-3px); box-shadow: 0 0 20px rgba(56, 189, 248, 0.4); }
+
+        /* HUD */
+        .hud-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .rank-box {
+            background: rgba(0, 0, 0, 0.6);
+            padding: 15px 25px;
+            border-radius: 10px;
+            color: white;
+            text-align: center;
+            border: 2px solid #38bdf8;
+        }
+        .rank-title { font-size: 0.8rem; text-transform: uppercase; color: #94a3b8; letter-spacing: 1px; }
+        .rank-value { font-size: 3rem; font-weight: bold; color: #fff; line-height: 1; }
+        .rank-suffix { font-size: 1.5rem; color: #38bdf8; }
+
+        .controls-hint {
+            position: absolute;
+            bottom: 20px;
+            width: 100%;
+            text-align: center;
+            color: rgba(255, 255, 255, 0.7);
+            font-family: monospace;
+            font-size: 1rem;
+            text-shadow: 1px 1px 2px black;
+        }
+
+        /* Countdown */
+        #countdown {
+            display: none;
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 10rem;
+            font-weight: 900;
+            color: #fff;
+            text-shadow: 0 0 50px rgba(255,255,255,0.8);
+            z-index: 25;
+            pointer-events: none;
+        }
+
+        /* Warning Overlay (Out of Bounds) */
+        #warning-overlay {
+            display: none;
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            border: 20px solid rgba(255, 0, 0, 0.6);
+            box-sizing: border-box;
+            z-index: 15;
+            pointer-events: none;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        #warning-msg {
+            background: rgba(255,0,0,0.8);
+            color: white;
+            padding: 20px 40px;
+            font-size: 2rem;
+            font-weight: bold;
+            border-radius: 10px;
+            text-transform: uppercase;
+        }
+
+        /* Game Over / Win Overlay */
+        #overlay {
+            display: none;
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 10, 30, 0.9);
+            z-index: 40;
+            pointer-events: auto;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            text-align: center;
+        }
+
+        #overlay h1 { font-size: 5rem; margin: 0; text-transform: uppercase; letter-spacing: 5px; text-shadow: 0 0 20px rgba(56, 189, 248, 0.5); }
+        #overlay p { font-size: 1.5rem; margin: 20px 0 40px; color: #cbd5e1; }
+        
+        .restart-btn {
+            padding: 15px 50px;
+            font-size: 1.5rem;
+            background: #38bdf8;
+            border: none;
+            border-radius: 50px;
+            color: #0f172a;
+            cursor: pointer;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.2s;
+            box-shadow: 0 0 20px rgba(56, 189, 248, 0.4);
+        }
+        .restart-btn:hover { background: #fff; transform: scale(1.05); }
+
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+    <!-- Start Screen -->
+    <div id="start-screen" class="ui-layer">
+        <h1>Ocean Battle Racing</h1>
+        <p>Navigate the treacherous waves, destroy your enemies, and race to the finish line.<br>Stay within the buoys or face disqualification!</p>
+        
+        <div style="margin-top: 30px;">
+            <button class="difficulty-btn" onclick="startGame('easy')">Easy</button>
+            <button class="difficulty-btn" onclick="startGame('normal')">Normal</button>
+            <button class="difficulty-btn" onclick="startGame('hard')">Hard</button>
+        </div>
+    </div>
+
+    <!-- HUD -->
+    <div id="hud" class="ui-layer" style="display: none;">
+        <div class="hud-top">
+            <div class="rank-box">
+                <div class="rank-title">Position</div>
+                <span id="rank-val" class="rank-value">1</span><span id="rank-suf" class="rank-suffix">st</span>
+                <div style="font-size: 0.9rem; margin-top: 5px; color: #aaa;">of <span id="total-boats">10</span></div>
+            </div>
+        </div>
+        
+        <div class="controls-hint">
+            ⬆️ Gas &nbsp; ⬇️ Brake &nbsp; ⬅️➡️ Steer &nbsp; SPACE: Broadside Cannons!
+        </div>
+    </div>
+
+    <!-- Feedback Elements -->
+    <div id="countdown">3</div>
+    
+    <div id="warning-overlay">
+        <div id="warning-msg">Return to Course! <span id="out-timer">5.0</span></div>
+    </div>
+
+    <!-- Game Over Screen -->
+    <div id="overlay">
+        <h1 id="overlay-title">GAME OVER</h1>
+        <p id="overlay-msg">Your ship has capsized.</p>
+        <button class="restart-btn" onclick="resetGame()">Main Menu</button>
+    </div>
+
+    <script>
+        // --- CONFIGURATION ---
+        // Defaults, overwritten by difficulty
+        const CONFIG = {
+            waveSpeed: 1.0,
+            waveHeight: 1.5,
+            choppiness: 1.0,
+            boatSpeed: 0.8,
+            turnSpeed: 0.025,
+            cameraLag: 0.08,
+            trackWidth: 35 // Tolerance for out of bounds
+        };
+
+        const GAME_STATE = {
+            MENU: 0,
+            COUNTDOWN: 1,
+            RACING: 2,
+            FINISHED: 3
+        };
+
+        // --- GLOBALS ---
+        let scene, camera, renderer, clock;
+        let waterMesh, waterGeo;
+        let originalPositions;
+        let boats = [];
+        let playerBoat = null;
+        let obstacles = [];
+        let buoys = [];
+        let projectiles = [];
+        let trackPath = [];
+        
+        let currentState = GAME_STATE.MENU;
+        let outOfBoundsTime = 0;
+        let countdownValue = 3;
+        let countdownTimer = 0;
+
+        // Assets
+        const ASSETS = {};
+        // Inputs
+        const keys = { w:false, s:false, a:false, d:false, space:false };
+
+        // --- INIT ---
+        function init() {
+            clock = new THREE.Clock();
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87CEEB);
+            scene.fog = new THREE.Fog(0x87CEEB, 50, 400);
+
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 1000);
+            
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            document.body.appendChild(renderer.domElement);
+
+            // Lighting
+            const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.8);
+            scene.add(hemiLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+            dirLight.position.set(-100, 200, -100);
+            dirLight.castShadow = true;
+            // Shadow settings optimized for large area
+            dirLight.shadow.camera.top = 200;
+            dirLight.shadow.camera.bottom = -200;
+            dirLight.shadow.camera.left = -200;
+            dirLight.shadow.camera.right = 200;
+            dirLight.shadow.mapSize.width = 2048;
+            dirLight.shadow.mapSize.height = 2048;
+            scene.add(dirLight);
+
+            createSharedAssets();
+            createWater();
+            generateTrack();
+            spawnObstacles();
+            spawnBoats(); // Spawns visuals, but logic waits for state
+
+            // Listeners
+            window.addEventListener('resize', onResize);
+            window.addEventListener('keydown', (e) => handleKey(e, true));
+            window.addEventListener('keyup', (e) => handleKey(e, false));
+
+            animate();
+        }
+
+        function createSharedAssets() {
+            // Boat Hull
+            ASSETS.hullGeo = new THREE.BoxGeometry(3.5, 2, 8);
+            ASSETS.hullMatPlayer = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
+            ASSETS.hullMatEnemy = new THREE.MeshStandardMaterial({ color: 0x555555 });
+            
+            // Cabin
+            ASSETS.cabinGeo = new THREE.BoxGeometry(2.5, 1.8, 3.5);
+            ASSETS.cabinMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee });
+            
+            // Cannonball
+            ASSETS.ballGeo = new THREE.SphereGeometry(0.4, 8, 8);
+            ASSETS.ballMat = new THREE.MeshBasicMaterial({ color: 0x111111 });
+
+            // Buoy
+            ASSETS.buoyGeo = new THREE.ConeGeometry(0.8, 2, 16);
+            ASSETS.buoyMatRed = new THREE.MeshStandardMaterial({ color: 0xff3333 });
+            ASSETS.buoyMatGreen = new THREE.MeshStandardMaterial({ color: 0x33ff33 });
+            ASSETS.buoyMatFinish = new THREE.MeshStandardMaterial({ color: 0xffd700, emissive: 0xaa6600 });
+
+            // Rock
+            ASSETS.rockGeo = new THREE.DodecahedronGeometry(2, 0);
+            ASSETS.rockMat = new THREE.MeshStandardMaterial({ color: 0x444444, roughness: 0.9 });
+        }
+
+        function createWater() {
+            waterGeo = new THREE.PlaneGeometry(600, 600, 150, 150);
+            const count = waterGeo.attributes.position.count;
+            originalPositions = new Float32Array(count * 3);
+            for(let i=0; i<count*3; i++) originalPositions[i] = waterGeo.attributes.position.array[i];
+            
+            waterGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(count * 3), 3));
+
+            const waterMat = new THREE.MeshStandardMaterial({
+                vertexColors: true,
+                roughness: 0.1,
+                metalness: 0.1,
+                flatShading: false,
+                side: THREE.DoubleSide
+            });
+
+            waterMesh = new THREE.Mesh(waterGeo, waterMat);
+            waterMesh.rotation.x = -Math.PI / 2;
+            waterMesh.receiveShadow = true;
+            scene.add(waterMesh);
+        }
+
+        function generateTrack() {
+            let x = 0;
+            let z = 0;
+            let angle = 0;
+            const segLength = 60;
+            
+            for(let i=0; i<60; i++) {
+                trackPath.push({x, z});
+                
+                // Add Buoys (Gates)
+                if (i > 0) { 
+                    spawnBuoy(x, z, angle, -20, 'red'); // Left (Widened gate)
+                    spawnBuoy(x, z, angle, 20, 'green'); // Right (Widened gate)
+                }
+
+                // Wiggle path
+                angle += (Math.random() - 0.5) * 0.8;
+                if (Math.abs(angle) > 1.2) angle *= 0.8;
+
+                x += Math.sin(angle) * segLength;
+                z -= Math.cos(angle) * segLength;
+            }
+
+            // Finish Line
+            spawnBuoy(x, z, angle, -20, 'finish');
+            spawnBuoy(x, z, angle, 20, 'finish');
+        }
+
+        function spawnBuoy(bx, bz, angle, offset, type) {
+            const px = bx + Math.cos(angle) * offset;
+            const pz = bz + Math.sin(angle) * offset;
+
+            const mesh = new THREE.Mesh(
+                ASSETS.buoyGeo, 
+                type === 'red' ? ASSETS.buoyMatRed : (type === 'green' ? ASSETS.buoyMatGreen : ASSETS.buoyMatFinish)
+            );
+            mesh.position.set(px, 0, pz);
+            mesh.castShadow = true;
+            mesh.userData = { baseY: 0, offset: Math.random() * 100 };
+            
+            scene.add(mesh);
+            buoys.push(mesh);
+        }
+
+        function spawnObstacles() {
+            for (let i = 0; i < 40; i++) {
+                const segment = Math.floor(Math.random() * (trackPath.length - 6)) + 4;
+                const point = trackPath[segment];
+                
+                const ox = point.x + (Math.random() - 0.5) * 50;
+                const oz = point.z + (Math.random() - 0.5) * 50;
+
+                const scale = 1 + Math.random() * 2;
+                const rock = new THREE.Mesh(ASSETS.rockGeo, ASSETS.rockMat);
+                rock.position.set(ox, -1, oz);
+                rock.scale.set(scale, scale, scale);
+                rock.rotation.set(Math.random(), Math.random(), Math.random());
+                rock.castShadow = true;
+                rock.receiveShadow = true;
+                rock.userData = { radius: 2 * scale };
+
+                scene.add(rock);
+                obstacles.push(rock);
+            }
+        }
+
+        function spawnBoats() {
+            // Spawn Grid to prevent collisions
+            // 2 rows of 5 boats
+            // Player is in front row, center
+            
+            // Row 1 (Z = 0)
+            playerBoat = new Boat(true, 0, 0); // Center
+            boats.push(playerBoat);
+            boats.push(new Boat(false, -15, 0));
+            boats.push(new Boat(false, 15, 0));
+            
+            // Row 2 (Z = 15)
+            boats.push(new Boat(false, -7, 15));
+            boats.push(new Boat(false, 7, 15));
+            boats.push(new Boat(false, -22, 15));
+            boats.push(new Boat(false, 22, 15));
+
+            // Row 3 (Z = 30)
+            boats.push(new Boat(false, 0, 30));
+            boats.push(new Boat(false, -15, 30));
+            boats.push(new Boat(false, 15, 30));
+        }
+
+        // --- GAME LOGIC ---
+
+        function startGame(difficulty) {
+            // Set Focus
+            window.focus();
+
+            // Set Difficulty
+            if (difficulty === 'easy') {
+                CONFIG.waveHeight = 0.8;
+                CONFIG.choppiness = 0.6;
+                CONFIG.boatSpeed = 0.9; // Player advantage
+                CONFIG.trackWidth = 45;
+            } else if (difficulty === 'normal') {
+                CONFIG.waveHeight = 1.5;
+                CONFIG.choppiness = 1.0;
+                CONFIG.boatSpeed = 0.8;
+                CONFIG.trackWidth = 35;
+            } else if (difficulty === 'hard') {
+                CONFIG.waveHeight = 2.5;
+                CONFIG.choppiness = 1.4;
+                CONFIG.boatSpeed = 0.75;
+                CONFIG.trackWidth = 30;
+            }
+
+            // Hide Menu, Show HUD
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('hud').style.display = 'flex';
+
+            // Start Countdown
+            currentState = GAME_STATE.COUNTDOWN;
+            countdownValue = 3;
+            const cdEl = document.getElementById('countdown');
+            cdEl.style.display = 'block';
+            cdEl.innerText = "3";
+        }
+
+        class Boat {
+            constructor(isPlayer, x, z) {
+                this.isPlayer = isPlayer;
+                this.mesh = new THREE.Group();
+                
+                // Visuals
+                const hull = new THREE.Mesh(ASSETS.hullGeo, isPlayer ? ASSETS.hullMatPlayer : ASSETS.hullMatEnemy);
+                hull.position.y = 0.5;
+                hull.castShadow = true;
+                this.mesh.add(hull);
+
+                const cabin = new THREE.Mesh(ASSETS.cabinGeo, ASSETS.cabinMat);
+                cabin.position.set(0, 2.0, -1);
+                cabin.castShadow = true;
+                this.mesh.add(cabin);
+
+                const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 6), new THREE.MeshStandardMaterial({color:0x222222}));
+                mast.position.set(0, 4, -1);
+                this.mesh.add(mast);
+
+                scene.add(this.mesh);
+
+                // Physics
+                this.pos = new THREE.Vector3(x, 0, z);
+                this.vel = new THREE.Vector3(0, 0, 0);
+                this.heading = 0; 
+                this.speed = 0;
+                this.targetIndex = 1;
+                this.sinking = false;
+                this.dead = false;
+                this.shootCooldown = 0;
+                this.raceDist = 0; 
+            }
+
+            update(dt, time) {
+                if (this.dead) {
+                    this.mesh.position.y -= dt * 2;
+                    return;
+                }
+
+                if (this.sinking) {
+                    this.mesh.rotation.x += dt * 0.5;
+                    this.mesh.rotation.z += dt * 0.2;
+                    this.mesh.position.y -= dt;
+                    if (this.mesh.position.y < -10) this.dead = true;
+                    return;
+                }
+
+                // AI/Player Logic only runs if Racing
+                if (currentState === GAME_STATE.RACING) {
+                    if (this.isPlayer) {
+                        if (keys.w) this.speed += CONFIG.boatSpeed * dt;
+                        if (keys.s) this.speed -= CONFIG.boatSpeed * dt;
+                        this.speed *= 0.98;
+
+                        if (Math.abs(this.speed) > 0.1) {
+                            const dir = this.speed > 0 ? 1 : -1;
+                            if (keys.a) this.heading += CONFIG.turnSpeed * dir;
+                            if (keys.d) this.heading -= CONFIG.turnSpeed * dir;
+                        }
+
+                        if (keys.space && this.shootCooldown <= 0) {
+                            this.fireCannons();
+                            this.shootCooldown = 0.5;
+                        }
+                    } else {
+                        this.updateAI(dt);
+                    }
+                } else {
+                    // Friction slows boats down during countdown or finish
+                    this.speed *= 0.95;
+                }
+
+                if (this.shootCooldown > 0) this.shootCooldown -= dt;
+
+                // Physics
+                this.pos.x -= Math.sin(this.heading) * this.speed;
+                this.pos.z -= Math.cos(this.heading) * this.speed;
+
+                // Waves
+                const waveY = getWaveHeight(this.pos.x, this.pos.z, time);
+                this.pos.y = waveY - 0.5;
+
+                const offset = 3.0;
+                const sinH = Math.sin(this.heading);
+                const cosH = Math.cos(this.heading);
+
+                const hFront = getWaveHeight(this.pos.x - sinH * offset, this.pos.z - cosH * offset, time);
+                const hBack = getWaveHeight(this.pos.x + sinH * offset, this.pos.z + cosH * offset, time);
+                const hLeft = getWaveHeight(this.pos.x - cosH * offset, this.pos.z + sinH * offset, time);
+                const hRight = getWaveHeight(this.pos.x + cosH * offset, this.pos.z - sinH * offset, time);
+
+                const pitch = Math.atan2(hBack - hFront, offset * 2);
+                const roll = Math.atan2(hLeft - hRight, offset * 2);
+
+                this.mesh.position.copy(this.pos);
+                this.mesh.rotation.y = this.heading;
+                this.mesh.rotation.x = THREE.MathUtils.lerp(this.mesh.rotation.x, pitch, 0.1);
+                this.mesh.rotation.z = THREE.MathUtils.lerp(this.mesh.rotation.z, roll, 0.1);
+
+                // Capsize Check (Disabled in MENU/COUNTDOWN)
+                if (currentState === GAME_STATE.RACING && (Math.abs(this.mesh.rotation.z) > 1.0 || Math.abs(this.mesh.rotation.x) > 1.0)) {
+                    this.sink();
+                    if (this.isPlayer) endGame("Capsized!");
+                }
+            }
+
+            updateAI(dt) {
+                if (this.targetIndex < trackPath.length) {
+                    const target = trackPath[this.targetIndex];
+                    const dx = target.x - this.pos.x;
+                    const dz = target.z - this.pos.z;
+                    const dist = Math.sqrt(dx*dx + dz*dz);
+
+                    if (dist < 20) this.targetIndex++;
+
+                    const desiredHeading = Math.atan2(-dx, -dz);
+                    let diff = desiredHeading - this.heading;
+                    while (diff < -Math.PI) diff += Math.PI*2;
+                    while (diff > Math.PI) diff -= Math.PI*2;
+
+                    if (diff > 0.1) this.heading += CONFIG.turnSpeed * 0.8;
+                    else if (diff < -0.1) this.heading -= CONFIG.turnSpeed * 0.8;
+
+                    // Simple Separation from neighbors
+                    for (let other of boats) {
+                        if (other === this) continue;
+                        const distToOther = this.pos.distanceTo(other.pos);
+                        if (distToOther < 8) {
+                             // Steer away
+                             this.heading += (this.pos.x > other.pos.x ? -0.05 : 0.05);
+                        }
+                    }
+
+                    for(let r of obstacles) {
+                        const rdx = r.position.x - this.pos.x;
+                        const rdz = r.position.z - this.pos.z;
+                        const rDist = Math.sqrt(rdx*rdx + rdz*rdz);
+                        if (rDist < 15 && rDist > 0) {
+                            this.heading += (Math.random() > 0.5 ? 0.1 : -0.1);
+                        }
+                    }
+                }
+
+                if (this.speed < CONFIG.boatSpeed * 0.85) this.speed += dt * 0.5;
+
+                if (playerBoat && !playerBoat.dead && this.shootCooldown <= 0) {
+                    const distToPlayer = this.pos.distanceTo(playerBoat.pos);
+                    if (distToPlayer < 40) {
+                        this.fireCannons();
+                        this.shootCooldown = 2.0 + Math.random() * 3;
+                    }
+                }
+            }
+
+            fireCannons() {
+                const cos = Math.cos(this.heading);
+                const sin = Math.sin(this.heading);
+                this.spawnProjectile(this.pos.x + cos*2, this.pos.z - sin*2, cos * 2, -sin * 2); 
+                this.spawnProjectile(this.pos.x - cos*2, this.pos.z + sin*2, -cos * 2, sin * 2); 
+            }
+
+            spawnProjectile(x, z, vx, vz) {
+                const mesh = new THREE.Mesh(ASSETS.ballGeo, ASSETS.ballMat);
+                mesh.position.set(x, 2, z);
+                scene.add(mesh);
+                projectiles.push({
+                    mesh: mesh,
+                    vel: {x: vx, z: vz},
+                    life: 2.0,
+                    owner: this
+                });
+            }
+
+            sink() {
+                if (this.sinking) return;
+                this.sinking = true;
+                this.mesh.position.y += 2;
+            }
+        }
+
+        function getWaveHeight(x, y, time) {
+            let z = 0;
+            z += Math.sin(x * 0.05 + time * CONFIG.waveSpeed) * CONFIG.waveHeight;
+            z += Math.cos(y * 0.03 + time * 0.8 * CONFIG.waveSpeed) * CONFIG.waveHeight * 0.5;
+            z += Math.sin((x + y) * 0.1 * CONFIG.choppiness + time * 2) * (CONFIG.waveHeight * 0.2 * CONFIG.choppiness);
+            z += Math.sin(x * 0.2 - time) * 0.2 * CONFIG.choppiness;
+            return z;
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const dt = clock.getDelta();
+            const time = clock.getElapsedTime();
+
+            // --- COUNTDOWN LOGIC ---
+            if (currentState === GAME_STATE.COUNTDOWN) {
+                countdownTimer += dt;
+                if (countdownTimer > 1.0) {
+                    countdownTimer = 0;
+                    countdownValue--;
+                    const cdEl = document.getElementById('countdown');
+                    if (countdownValue > 0) {
+                        cdEl.innerText = countdownValue;
+                    } else if (countdownValue === 0) {
+                        cdEl.innerText = "GO!";
+                        cdEl.style.color = "#4ade80";
+                    } else {
+                        cdEl.style.display = 'none';
+                        currentState = GAME_STATE.RACING;
+                    }
+                }
+            }
+
+            // --- RENDER LOGIC ---
+            
+            // 1. Water
+            if (playerBoat && !playerBoat.dead) {
+                waterMesh.position.x = playerBoat.pos.x;
+                waterMesh.position.z = playerBoat.pos.z;
+            }
+            updateWaterMesh(time);
+
+            // 2. Boats
+            boats.forEach(b => b.update(dt, time));
+
+            // 3. Projectiles
+            for (let i = projectiles.length - 1; i >= 0; i--) {
+                const p = projectiles[i];
+                p.life -= dt;
+                p.mesh.position.x += p.vel.x;
+                p.mesh.position.z += p.vel.z;
+                p.mesh.position.y -= dt * 2; 
+
+                let hit = false;
+                for (let rock of obstacles) {
+                    if (p.mesh.position.distanceTo(rock.position) < rock.userData.radius) { hit = true; break; }
+                }
+
+                if (!hit) {
+                    for (let b of boats) {
+                        if (b === p.owner || b.dead || b.sinking) continue;
+                        if (p.mesh.position.distanceTo(b.pos) < 3) {
+                            b.sink();
+                            if (b.isPlayer) endGame("Sunk by Cannonfire!");
+                            hit = true;
+                            break;
+                        }
+                    }
+                }
+                if (p.mesh.position.y < -1) hit = true;
+
+                if (hit || p.life <= 0) {
+                    scene.remove(p.mesh);
+                    projectiles.splice(i, 1);
+                }
+            }
+
+            // 4. Buoys
+            buoys.forEach(b => {
+                const h = getWaveHeight(b.position.x, b.position.z, time);
+                b.position.y = h;
+                b.rotation.x = Math.sin(time + b.userData.offset) * 0.2;
+                b.rotation.z = Math.cos(time + b.userData.offset) * 0.2;
+            });
+
+            // 5. Player Checks
+            if (playerBoat && !playerBoat.dead) {
+                
+                // Obstacle Collisions
+                for (let rock of obstacles) {
+                    if (playerBoat.pos.distanceTo(rock.position) < 4) {
+                        playerBoat.sink();
+                        endGame("Crashed into Rocks!");
+                    }
+                }
+                for (let b of boats) {
+                    if (b === playerBoat) continue;
+                    if (playerBoat.pos.distanceTo(b.pos) < 4) {
+                        playerBoat.sink();
+                        b.sink();
+                        endGame("Collision at Sea!");
+                    }
+                }
+
+                // Out of Bounds Logic (Find distance to nearest track point)
+                if (currentState === GAME_STATE.RACING) {
+                    let minD = 10000;
+                    for(let p of trackPath) {
+                        const d = Math.sqrt(Math.pow(p.x - playerBoat.pos.x, 2) + Math.pow(p.z - playerBoat.pos.z, 2));
+                        if(d < minD) minD = d;
+                    }
+                    
+                    const warningEl = document.getElementById('warning-overlay');
+                    if (minD > CONFIG.trackWidth) {
+                        warningEl.style.display = 'flex';
+                        outOfBoundsTime += dt;
+                        document.getElementById('out-timer').innerText = (5.0 - outOfBoundsTime).toFixed(1);
+                        if (outOfBoundsTime > 5.0) {
+                            endGame("Disqualified: Off Course");
+                        }
+                    } else {
+                        warningEl.style.display = 'none';
+                        outOfBoundsTime = 0;
+                    }
+                }
+
+                // Rankings
+                boats.forEach(b => b.raceDist = -b.pos.z);
+                const sorted = [...boats].filter(b => !b.dead).sort((a, b) => b.raceDist - a.raceDist);
+                const rank = sorted.indexOf(playerBoat) + 1;
+                document.getElementById('rank-val').innerText = rank;
+                const suffixes = ["th", "st", "nd", "rd"];
+                const v = rank % 100;
+                const suffix = suffixes[(v - 20) % 10] || suffixes[v] || suffixes[0];
+                document.getElementById('rank-suf').innerText = suffix;
+                document.getElementById('total-boats').innerText = sorted.length;
+
+                const finishLineZ = trackPath[trackPath.length-1].z;
+                if (playerBoat.pos.z < finishLineZ + 10 && currentState === GAME_STATE.RACING) {
+                    currentState = GAME_STATE.FINISHED;
+                    endGame("Finished " + rank + suffix + "!", true);
+                }
+            }
+
+            // 6. Camera
+            if (playerBoat && !playerBoat.dead) {
+                // If racing, follow closely. If menu, hover.
+                const targetX = playerBoat.pos.x - Math.sin(playerBoat.heading) * -40;
+                const targetZ = playerBoat.pos.z - Math.cos(playerBoat.heading) * -40;
+                
+                camera.position.x += (targetX - camera.position.x) * CONFIG.cameraLag;
+                camera.position.z += (targetZ - camera.position.z) * CONFIG.cameraLag;
+                camera.position.y += (25 + playerBoat.pos.y - camera.position.y) * CONFIG.cameraLag;
+                camera.lookAt(playerBoat.pos.x, playerBoat.pos.y + 5, playerBoat.pos.z);
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        function updateWaterMesh(time) {
+            const posAttr = waterGeo.attributes.position;
+            const colAttr = waterGeo.attributes.color;
+            const count = posAttr.count;
+
+            const wx = waterMesh.position.x;
+            const wz = waterMesh.position.z;
+
+            const C_DEEP = new THREE.Color(0x004968);
+            const C_SHALLOW = new THREE.Color(0x20b2aa);
+            const C_FOAM = new THREE.Color(0xffffff);
+            const tmpColor = new THREE.Color();
+
+            for (let i = 0; i < count; i++) {
+                const lx = originalPositions[i*3];
+                const lz = originalPositions[i*3+1];
+                const worldX = lx + wx;
+                const worldZ = lz + wz;
+                const z = getWaveHeight(worldX, worldZ, time);
+                posAttr.setZ(i, z);
+                let hNorm = (z - (-CONFIG.waveHeight)) / (CONFIG.waveHeight * 2);
+                if (hNorm < 0) hNorm = 0; if (hNorm > 1) hNorm = 1;
+                if (hNorm > 0.8) tmpColor.lerpColors(C_SHALLOW, C_FOAM, (hNorm - 0.8) * 5);
+                else tmpColor.lerpColors(C_DEEP, C_SHALLOW, hNorm);
+                colAttr.setXYZ(i, tmpColor.r, tmpColor.g, tmpColor.b);
+            }
+            posAttr.needsUpdate = true;
+            colAttr.needsUpdate = true;
+            waterGeo.computeVertexNormals();
+        }
+
+        function handleKey(e, pressed) {
+            const k = e.code;
+            if (k === 'ArrowUp' || k === 'KeyW') keys.w = pressed;
+            if (k === 'ArrowDown' || k === 'KeyS') keys.s = pressed;
+            if (k === 'ArrowLeft' || k === 'KeyA') keys.a = pressed;
+            if (k === 'ArrowRight' || k === 'KeyD') keys.d = pressed;
+            if (k === 'Space') keys.space = pressed;
+        }
+
+        function onResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function endGame(msg, win=false) {
+            // Wait slightly before showing overlay to let the "Sinking" animation play out
+            setTimeout(() => {
+                const overlay = document.getElementById('overlay');
+                const title = document.getElementById('overlay-title');
+                const txt = document.getElementById('overlay-msg');
+                overlay.style.display = 'flex';
+                title.innerText = win ? "FINISH!" : "GAME OVER";
+                title.style.color = win ? "#4ade80" : "#ef4444";
+                txt.innerText = msg;
+            }, 500);
+        }
+
+        function resetGame() {
+            window.location.reload(); 
+        }
+
+        window.onload = init;
+
+    </script>
+</body>
+</html>
