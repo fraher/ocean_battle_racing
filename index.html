@@ -5,7 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ocean Battle Racing</title>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background-color: #000; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
         canvas { display: block; width: 100vw; height: 100vh; }
         
         /* UI Layers */
@@ -162,7 +169,7 @@
             pointer-events: none; /* Let touches pass through container */
             z-index: 50;
             justify-content: space-between;
-            padding: 0 20px;
+            padding: 0 40px;
             box-sizing: border-box;
         }
 
@@ -170,62 +177,53 @@
             pointer-events: auto; /* Enable touches on buttons */
             display: flex;
             gap: 10px;
+            align-items: center;
         }
 
-        .d-pad {
+        /* Joystick */
+        #joystick-zone {
             position: relative;
-            width: 150px;
-            height: 150px;
+            width: 120px;
+            height: 120px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
             pointer-events: auto;
+            touch-action: none;
         }
 
-        .d-btn {
+        #joystick-knob {
             position: absolute;
+            top: 50%; left: 50%;
             width: 50px;
             height: 50px;
-            background: rgba(255, 255, 255, 0.2);
-            border: 2px solid rgba(255, 255, 255, 0.5);
-            border-radius: 10px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-size: 24px;
-            color: white;
-            user-select: none;
-            touch-action: none; /* Prevent scrolling */
+            background: rgba(56, 189, 248, 0.8);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+            pointer-events: none; /* Events handled by zone */
         }
-        
-        .d-btn:active, .d-btn.active {
-            background: rgba(56, 189, 248, 0.5);
-            border-color: #38bdf8;
-        }
-
-        .d-up { top: 0; left: 50px; }
-        .d-down { bottom: 0; left: 50px; }
-        .d-left { top: 50px; left: 0; }
-        .d-right { top: 50px; right: 0; }
 
         .fire-btn {
-            width: 80px;
-            height: 80px;
-            background: rgba(255, 50, 50, 0.3);
-            border: 2px solid rgba(255, 50, 50, 0.6);
+            width: 90px;
+            height: 90px;
+            background: rgba(255, 50, 50, 0.4);
+            border: 4px solid rgba(255, 50, 50, 0.6);
             border-radius: 50%;
-            align-self: center;
             display: flex;
             justify-content: center;
             align-items: center;
-            font-weight: bold;
+            font-weight: 900;
             color: white;
             font-size: 1.2rem;
             user-select: none;
             touch-action: none;
-            margin-right: 20px;
             pointer-events: auto;
+            box-shadow: 0 0 15px rgba(255, 50, 50, 0.3);
         }
         
         .fire-btn:active, .fire-btn.active {
-            background: rgba(255, 50, 50, 0.6);
+            background: rgba(255, 50, 50, 0.8);
             transform: scale(0.95);
         }
 
@@ -277,11 +275,8 @@
 
     <!-- Mobile Controls -->
     <div id="mobile-controls">
-        <div class="d-pad">
-            <div class="d-btn d-up" data-key="w">⬆️</div>
-            <div class="d-btn d-left" data-key="a">⬅️</div>
-            <div class="d-btn d-right" data-key="d">➡️</div>
-            <div class="d-btn d-down" data-key="s">⬇️</div>
+        <div id="joystick-zone">
+            <div id="joystick-knob"></div>
         </div>
         <div class="control-group">
             <div class="fire-btn" data-key="space">FIRE</div>
@@ -372,7 +367,8 @@
             window.addEventListener('keyup', (e) => handleKey(e, false));
 
             if (isMobile()) {
-                document.getElementById('mobile-controls').style.display = 'flex';
+                // document.getElementById('mobile-controls').style.display = 'flex'; // Don't show yet
+                document.querySelector('.controls-hint').style.display = 'none';
                 setupMobileControls();
             }
 
@@ -542,6 +538,10 @@
             // Hide Menu, Show HUD
             document.getElementById('start-screen').style.display = 'none';
             document.getElementById('hud').style.display = 'flex';
+
+            if (isMobile()) {
+                document.getElementById('mobile-controls').style.display = 'flex';
+            }
 
             // Start Countdown
             currentState = GAME_STATE.COUNTDOWN;
@@ -960,29 +960,80 @@
         }
 
         function setupMobileControls() {
-            const btns = document.querySelectorAll('.d-btn, .fire-btn');
-            
-            btns.forEach(btn => {
-                const key = btn.getAttribute('data-key');
-                
-                const start = (e) => {
-                    if(e.cancelable) e.preventDefault();
-                    btn.classList.add('active');
-                    keys[key] = true;
-                };
-                
-                const end = (e) => {
-                    if(e.cancelable) e.preventDefault();
-                    btn.classList.remove('active');
-                    keys[key] = false;
-                };
+            // Fire Button
+            const fireBtn = document.querySelector('.fire-btn');
+            const fireStart = (e) => {
+                if(e.cancelable) e.preventDefault();
+                fireBtn.classList.add('active');
+                keys.space = true;
+            };
+            const fireEnd = (e) => {
+                if(e.cancelable) e.preventDefault();
+                fireBtn.classList.remove('active');
+                keys.space = false;
+            };
+            fireBtn.addEventListener('touchstart', fireStart, {passive: false});
+            fireBtn.addEventListener('touchend', fireEnd);
+            fireBtn.addEventListener('mousedown', fireStart);
+            fireBtn.addEventListener('mouseup', fireEnd);
+            fireBtn.addEventListener('mouseleave', fireEnd);
 
-                btn.addEventListener('touchstart', start, {passive: false});
-                btn.addEventListener('touchend', end);
-                btn.addEventListener('mousedown', start); // For testing on desktop
-                btn.addEventListener('mouseup', end);
-                btn.addEventListener('mouseleave', end);
+            // Joystick
+            const zone = document.getElementById('joystick-zone');
+            const knob = document.getElementById('joystick-knob');
+            const maxDist = 35; // Max radius for knob movement
+            
+            const handleMove = (clientX, clientY) => {
+                const rect = zone.getBoundingClientRect();
+                const centerX = rect.left + rect.width / 2;
+                const centerY = rect.top + rect.height / 2;
+                
+                let dx = clientX - centerX;
+                let dy = clientY - centerY;
+                
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                
+                // Limit knob
+                if (dist > maxDist) {
+                    dx = (dx / dist) * maxDist;
+                    dy = (dy / dist) * maxDist;
+                }
+                
+                knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+                
+                // Map to Keys (Simple Thresholds)
+                // Deadzone of 10px
+                keys.w = dy < -10;
+                keys.s = dy > 10;
+                keys.a = dx < -10;
+                keys.d = dx > 10;
+            };
+            
+            const reset = () => {
+                knob.style.transform = `translate(-50%, -50%)`;
+                keys.w = keys.s = keys.a = keys.d = false;
+            };
+
+            zone.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                handleMove(e.touches[0].clientX, e.touches[0].clientY);
+            }, {passive: false});
+
+            zone.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                handleMove(e.touches[0].clientX, e.touches[0].clientY);
+            }, {passive: false});
+
+            zone.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                reset();
             });
+            
+            // Mouse fallback for testing
+            let dragging = false;
+            zone.addEventListener('mousedown', (e) => { dragging = true; handleMove(e.clientX, e.clientY); });
+            window.addEventListener('mousemove', (e) => { if(dragging) handleMove(e.clientX, e.clientY); });
+            window.addEventListener('mouseup', (e) => { if(dragging) { dragging = false; reset(); } });
         }
 
         window.onload = init;
