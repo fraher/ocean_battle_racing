@@ -151,6 +151,84 @@
         }
         .restart-btn:hover { background: #fff; transform: scale(1.05); }
 
+        /* Mobile Controls */
+        #mobile-controls {
+            display: none; /* Hidden by default */
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            width: 100%;
+            height: 150px;
+            pointer-events: none; /* Let touches pass through container */
+            z-index: 50;
+            justify-content: space-between;
+            padding: 0 20px;
+            box-sizing: border-box;
+        }
+
+        .control-group {
+            pointer-events: auto; /* Enable touches on buttons */
+            display: flex;
+            gap: 10px;
+        }
+
+        .d-pad {
+            position: relative;
+            width: 150px;
+            height: 150px;
+            pointer-events: auto;
+        }
+
+        .d-btn {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            border-radius: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            color: white;
+            user-select: none;
+            touch-action: none; /* Prevent scrolling */
+        }
+        
+        .d-btn:active, .d-btn.active {
+            background: rgba(56, 189, 248, 0.5);
+            border-color: #38bdf8;
+        }
+
+        .d-up { top: 0; left: 50px; }
+        .d-down { bottom: 0; left: 50px; }
+        .d-left { top: 50px; left: 0; }
+        .d-right { top: 50px; right: 0; }
+
+        .fire-btn {
+            width: 80px;
+            height: 80px;
+            background: rgba(255, 50, 50, 0.3);
+            border: 2px solid rgba(255, 50, 50, 0.6);
+            border-radius: 50%;
+            align-self: center;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            color: white;
+            font-size: 1.2rem;
+            user-select: none;
+            touch-action: none;
+            margin-right: 20px;
+            pointer-events: auto;
+        }
+        
+        .fire-btn:active, .fire-btn.active {
+            background: rgba(255, 50, 50, 0.6);
+            transform: scale(0.95);
+        }
+
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
@@ -195,6 +273,19 @@
         <h1 id="overlay-title">GAME OVER</h1>
         <p id="overlay-msg">Your ship has capsized.</p>
         <button class="restart-btn" onclick="resetGame()">Main Menu</button>
+    </div>
+
+    <!-- Mobile Controls -->
+    <div id="mobile-controls">
+        <div class="d-pad">
+            <div class="d-btn d-up" data-key="w">⬆️</div>
+            <div class="d-btn d-left" data-key="a">⬅️</div>
+            <div class="d-btn d-right" data-key="d">➡️</div>
+            <div class="d-btn d-down" data-key="s">⬇️</div>
+        </div>
+        <div class="control-group">
+            <div class="fire-btn" data-key="space">FIRE</div>
+        </div>
     </div>
 
     <script>
@@ -279,6 +370,11 @@
             window.addEventListener('resize', onResize);
             window.addEventListener('keydown', (e) => handleKey(e, true));
             window.addEventListener('keyup', (e) => handleKey(e, false));
+
+            if (isMobile()) {
+                document.getElementById('mobile-controls').style.display = 'flex';
+                setupMobileControls();
+            }
 
             animate();
         }
@@ -856,6 +952,37 @@
 
         function resetGame() {
             window.location.reload(); 
+        }
+
+        // Mobile Controls
+        function isMobile() {
+            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        }
+
+        function setupMobileControls() {
+            const btns = document.querySelectorAll('.d-btn, .fire-btn');
+            
+            btns.forEach(btn => {
+                const key = btn.getAttribute('data-key');
+                
+                const start = (e) => {
+                    if(e.cancelable) e.preventDefault();
+                    btn.classList.add('active');
+                    keys[key] = true;
+                };
+                
+                const end = (e) => {
+                    if(e.cancelable) e.preventDefault();
+                    btn.classList.remove('active');
+                    keys[key] = false;
+                };
+
+                btn.addEventListener('touchstart', start, {passive: false});
+                btn.addEventListener('touchend', end);
+                btn.addEventListener('mousedown', start); // For testing on desktop
+                btn.addEventListener('mouseup', end);
+                btn.addEventListener('mouseleave', end);
+            });
         }
 
         window.onload = init;

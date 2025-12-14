@@ -16,15 +16,20 @@ Try it here: [Play!](https://fraher.github.io/ocean_battle_racing/)
     *   **Normal:** Standard waves and competition.
     *   **Hard:** High waves, choppy water, narrow track, and aggressive AI.
 *   **Destruction:** Boats can capsize from waves, sink from cannon fire, or be destroyed by collisions with rocks or other ships.
+*   **Mobile Support:** Automatically detects mobile devices and provides on-screen touch controls.
 
 ## How to Play
 
 ### Controls
-*   **W / Up Arrow:** Accelerate
-*   **S / Down Arrow:** Brake / Reverse
-*   **A / Left Arrow:** Steer Left
-*   **D / Right Arrow:** Steer Right
-*   **SPACE:** Fire Broadside Cannons
+*   **Desktop:**
+    *   **W / Up Arrow:** Accelerate
+    *   **S / Down Arrow:** Brake / Reverse
+    *   **A / Left Arrow:** Steer Left
+    *   **D / Right Arrow:** Steer Right
+    *   **SPACE:** Fire Broadside Cannons
+*   **Mobile:**
+    *   **On-Screen D-Pad:** Steer and Accelerate
+    *   **Fire Button:** Fire Broadside Cannons
 
 ### Rules
 1.  **Stay on Course:** If you stray too far from the buoys, a 5-second disqualification timer begins.
